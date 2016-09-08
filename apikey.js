@@ -1,66 +1,64 @@
-var express = require('express');
-var bodyParser = require('body-parser');
-var unirest = require("unirest");
+var http = require('http');
 var storage = require('node-persist');
-var app = express();
-var port = process.env.PORT || 8089;
-
+var S = require('string');
+var PORT = process.env.PORT || 8089;
 storage.initSync({ dir: 'storage'});
-/* Accepting any type and assuming it is application/json, otherwise the caller
- *    is forced to pass the content-type specifically.
- *    */
-function defaultContentTypeMiddleware (req, res, next) {
-  req.headers['content-type'] = req.headers['content-type'] || 'application/json';
-  next();
-}
 
-/* Handler for the storage of a new apikey for the specified id:
-   Sample payload:
-   { "id"     : "MeMyselfAndI"
-   , "apikey" : "OpenSesame"
-   }
- */
-function handlepostkey(req, res){
-    // Store the apikey based on the supplied id
-    if (req.body.apikey != ''){
-        var newKey = {};
-        newKey.apikey = req.body.apikey;
-        storage.setItem( req.body.id, newKey);
-        res.statusCode = 201;
-        res.json( '{ status: key successfully stored.}')
-        console.log('Stored apikey for id: ' + req.body.id);
-    } else {
-        console.log('Cannot store key from request: ' + req.body);
-        res.statusCode = 404;
-        res.json( '{ error: No key supplied}')
-    }
-}
+var server = http.createServer(function (request, response) {
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+  response.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+  response.setHeader('Access-Control-Allow-Credentials', true);
 
-/* Handler for the retrieval of the APIKey for id as in
-   GET /apikey/{id}
-
-   Response will be { "apikey" : "APIKEYVALUE" } + HTTP/200 when found
-   errormessage and HTTP/404 otherwise
-*/
-function handlegetkey(req, res){
-    var id = req.params.id;
-    var apikey = storage.getItem( id );
-    if (apikey != null){
-        res.statusCode = 200;
-        res.json(apikey);
-        console.log('Retrieved key for id: ' + id);
-    } else {
-        console.log('Cannot retrieve key for id: ' + id);
-        res.statusCode = 404;
-        res.json('{ error: No key found}');
-    }
-}
-
-app.use(defaultContentTypeMiddleware);
-app.use(bodyParser.json({ type: '*/*' }));
-app.get('/apikey/:id', handlegetkey);
-app.post('/apikey', handlepostkey);
-
-app.listen(port, function(){
-  console.log('Application is running and listening on port ' + port);
+  var requestBody = '';
+  request.on('data', function (data) {
+    requestBody += data;
+  });
+  request.on('end', function () {
+    handleRequest(request, response, requestBody);
+  });
 });
+
+function handleRequest(request, response, requestBody) {
+  var url = request.url;
+  console.log(request.method + ":" + url + ' >>' + requestBody);
+
+  if (request.url == '/apikey'){
+    if (request.method == 'POST'){
+      var jsonMsg = JSON.parse(requestBody);
+      // Store the APIKEY
+      if ( jsonMsg.id != null && jsonMsg.apikey != null){
+        var newKey = {};
+        newKey.apikey = jsonMsg.apikey;
+        storage.setItem( jsonMsg.id, newKey);
+        response.statusCode = 201;
+        response.end( '{ "status" : "key successfully stored"}')
+        console.log('Stored apikey for id: ' + jsonMsg.id);
+      } 
+    } 
+  } else {
+      if (S(url).startsWith('/apikey/')){
+        if (request.method == 'GET'){
+          var id = url.split('/')[2];
+          console.log('Extracted key from url, id = ' + id);
+          var apikey = storage.getItem( id );
+          if (apikey != null){
+              response.statusCode = 200;
+              response.end(JSON.stringify(apikey));
+              console.log('Retrieved key for id: ' + id);
+          } else {
+            response.statusCode = 404;
+            response.end('{ "Error" : "Invalid apikey requested!" }');
+          }
+        } else  {
+            response.statusCode = 404;
+            response.end('{ "Error" : "Invalid resource requested!" }');
+        }
+      }
+  }
+}
+
+server.listen(PORT, function () {
+  console.log('Server running at port ' + PORT + ' ...');
+});
+
