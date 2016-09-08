@@ -3,25 +3,9 @@ var bodyParser = require('body-parser');
 var unirest = require("unirest");
 var storage = require('node-persist');
 var app = express();
+var port = process.env.PORT || 8089;
 
-var args = process.argv.slice(2);
-// for local tests you can set and export the environment variable
-if (!args[0]) {
-  // If the port is not passed in, then will check for APIKEY_LISTEN_PORT env variable
-  if (!process.env.APIKEY_LISTEN_PORT) {
-    //Cannot resolve the port, so raising the exception
-    console.log('Usage: node app.js <port>');
-    return;
-  } else {
-    //Port was not passed in, but env variable is set, so taking that.
-    args[0] = process.env.APIKEY_LISTEN_PORT;
-  }
-}
-
-var port = args[0];
 storage.initSync({ dir: 'storage'});
-app.use(defaultContentTypeMiddleware);
-app.use(bodyParser.json({ type: '*/*' }));
 /* Accepting any type and assuming it is application/json, otherwise the caller
  *    is forced to pass the content-type specifically.
  *    */
@@ -36,7 +20,7 @@ function defaultContentTypeMiddleware (req, res, next) {
    , "apikey" : "OpenSesame"
    }
  */
-app.post('/apikey', function (req, res){
+function handlepostkey(req, res){
     // Store the apikey based on the supplied id
     if (req.body.apikey != ''){
         var newKey = {};
@@ -44,12 +28,13 @@ app.post('/apikey', function (req, res){
         storage.setItem( req.body.id, newKey);
         res.statusCode = 201;
         res.json( '{ status: key successfully stored.}')
+        console.log('Stored apikey for id: ' + req.body.id);
     } else {
         console.log('Cannot store key from request: ' + req.body);
         res.statusCode = 404;
         res.json( '{ error: No key supplied}')
     }
-});
+}
 
 /* Handler for the retrieval of the APIKey for id as in
    GET /apikey/{id}
@@ -57,17 +42,25 @@ app.post('/apikey', function (req, res){
    Response will be { "apikey" : "APIKEYVALUE" } + HTTP/200 when found
    errormessage and HTTP/404 otherwise
 */
-app.get('/apikey/:id', function(req, res){
+function handlegetkey(req, res){
     var id = req.params.id;
     var apikey = storage.getItem( id );
     if (apikey != null){
         res.statusCode = 200;
         res.json(apikey);
+        console.log('Retrieved key for id: ' + id);
     } else {
         console.log('Cannot retrieve key for id: ' + id);
         res.statusCode = 404;
         res.json('{ error: No key found}');
     }
+}
+
+app.use(defaultContentTypeMiddleware);
+app.use(bodyParser.json({ type: '*/*' }));
+app.get('/apikey/:id', handlegetkey);
+app.post('/apikey', handlepostkey);
+
+app.listen(port, function(){
+  console.log('Application is running and listening on port ' + port);
 });
-app.listen(port);
-console.log('APIKey microservice listening on port ' + port);
