@@ -1,0 +1,8 @@
+{
+  "runtime" : {
+    "majorVersion" : "0.12"
+  }
+, "command" : "node apikey.js"
+, "release" : {}
+, "notes"   : "Simple microservice to store and retrieve APIKEYs based on id"
+}
