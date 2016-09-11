@@ -1,2 +1,2 @@
 #!/bin/sh
-zip ACCDeploy.zip apikey.js manifest.json package.json
+zip apikey.zip -r apikey.js manifest.json package.json node_modules/
