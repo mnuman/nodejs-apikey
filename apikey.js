@@ -64,7 +64,17 @@ function handlegetkey(req, res){
         console.log('Cannot retrieve key for id: ' + id);
     }
 }
+function handledeletekey(req,res){
+    var id = req.params.id;
+    storage.removeItemSync(id);
+    res.statusCode = 200;
+    var response = {};
+    response.status = 'APIKey was removed from storage';
+    res.json( response);
+    console.log('Removal operation completed');
+}
 app.use(defaultContentTypeMiddleware);
 app.use(bodyParser.json({ type: '*/*' }));
 app.get('/apikey/:id', handlegetkey);
+app.delete('/apikey/:id', handledeletekey);
 app.post('/apikey', handlepostkey);
